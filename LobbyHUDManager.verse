@@ -133,6 +133,8 @@ lobby_menu_manager := class(creative_device):
     var PlayerPreferencesMap : [agent]player_preferences = map{}
     var PlayerShowStatsMap : [agent]logic = map{}
     var ActiveRematchSessions : []rematch_session = array{}
+    var PlayerLobbyMenuActiveMap : [agent]logic = map{}
+    var PlayerAARActiveMap : [agent]logic = map{}
 
     OnBegin<override>()<suspends> : void =
         GetPlayspace().PlayerAddedEvent().Subscribe(InitializePlayerLobbyMenu)
@@ -148,10 +150,41 @@ lobby_menu_manager := class(creative_device):
         ContractManager.ContractsUpdatedEvent.Subscribe(HandleContractsUpdated)
         EconomyManager.CybercashUpdatedEvent.Subscribe(HandleCybercashUpdated)
         CustomizationManager.CustomizationUpdatedEvent.Subscribe(HandleCustomizationUpdated)
+        StatsManager.PlayerStatsUpdatedEvent.Subscribe(HandlePlayerStatsUpdated)
 
         spawn { LobbyMenuUpdateLoop() }
         spawn { ShopCountdownLoop() }
         spawn { MatchFoundListener() }
+
+    HandlePlayerStatsUpdated(Payload : tuple(agent, player_persistable_stats)) : void =
+        Agent := Payload(0)
+        if (MenuWidget := PlayerLobbyMenuMap[Agent]):
+            UpdateStatsAndRankData(Agent, MenuWidget)
+            UpdatePlayerCardPreview(Agent, MenuWidget)
+
+    HandleExitAARClicked(Agent : agent) : void =
+        MatchmakingManager.UnlockAgent(Agent)
+        if. set PlayerAARActiveMap[Agent] = false
+        if (PlayerObj := player[Agent], PUI := GetPlayerUI[PlayerObj], AAR := PlayerAARMap[Agent]):
+            PUI.RemoveWidget(AAR)
+            ShowLobbyMenuForPlayer(Agent)
+
+        for (Session : ActiveRematchSessions):
+            if (Session.Player1 = Agent):
+                set Session.P1InAAR = false
+                set Session.P1WantsRematch = false
+                if (AAR2 := PlayerAARMap[Session.Player2]):
+                    set AAR2.IsRematchAvailable = false
+                    set AAR2.OpponentExitedAAR = true
+            else if (Session.Player2 = Agent):
+                set Session.P2InAAR = false
+                set Session.P2WantsRematch = false
+                if (AAR1 := PlayerAARMap[Session.Player1]):
+                    set AAR1.IsRematchAvailable = false
+                    set AAR1.OpponentExitedAAR = true
+
+        if (Prefs := PlayerPreferencesMap[Agent], Prefs.AutoQueue?):
+            MatchmakingManager.HandlePlayerReadyUp(Agent)
 
     HandleContractsUpdated(Agent : agent) : void =
         if (MenuWidget := PlayerLobbyMenuMap[Agent]):
@@ -171,8 +204,7 @@ lobby_menu_manager := class(creative_device):
 
     InitializePlayerLobbyMenu(Agent : agent) : void =
         if (Player := player[Agent], PlayerUI := GetPlayerUI[Player]):
-            if (OldMenu := PlayerLobbyMenuMap[Agent]):
-                PlayerUI.RemoveWidget(OldMenu)
+            # Guarantee dependencies are initialized
             EconomyManager.InitializePlayerEconomy(Agent)
             CustomizationManager.InitializePlayerCustomization(Agent)
 
@@ -181,6 +213,7 @@ lobby_menu_manager := class(creative_device):
             set MenuWidget.ShowCombatCardStats = false
             PlayerUI.AddWidget(MenuWidget, player_ui_slot{ ZOrder := 0, InputMode := ui_input_mode.All })
             if. set PlayerLobbyMenuMap[Agent] = MenuWidget
+            if. set PlayerLobbyMenuActiveMap[Agent] = true
             if (not PlayerPreferencesMap[Agent]):
                 if. set PlayerPreferencesMap[Agent] = player_preferences{}
             if. set PlayerShowStatsMap[Agent] = false
@@ -276,6 +309,7 @@ lobby_menu_manager := class(creative_device):
 
     HideLobbyMenuForPlayer<public>(Agent : agent) : void =
         StopMusicForPlayer(Agent)
+        if. set PlayerLobbyMenuActiveMap[Agent] = false
         if (Player := player[Agent], PlayerUI := GetPlayerUI[Player], MenuWidget := PlayerLobbyMenuMap[Agent]):
             PlayerUI.RemoveWidget(MenuWidget)
 
@@ -285,6 +319,7 @@ lobby_menu_manager := class(creative_device):
             set MenuWidget.ShowMatchFoundPopup = false
             PlayerUI.AddWidget(MenuWidget, player_ui_slot{ ZOrder := 0, InputMode := ui_input_mode.All })
             if. set PlayerLobbyMenuMap[Agent] = MenuWidget
+            if. set PlayerLobbyMenuActiveMap[Agent] = true
             UpdateMenuData(Agent, MenuWidget)
             PlayMusicForPlayer(Agent)
             CustomizationManager.ApplyEquippedBackpackVfx(Agent)
@@ -297,7 +332,9 @@ lobby_menu_manager := class(creative_device):
 
     RunTotalPlayerCountDisplay(Agent : agent, MenuWidget : UI.LobbyMenuWidget)<suspends> : void =
         loop:
-            Sleep(1.0)
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
+            Sleep(2.0)
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
             Players := GetPlayspace().GetPlayers()
             set MenuWidget.PlayerCountMessage = StringToMessage("{Players.Length}")
 
@@ -313,10 +350,10 @@ lobby_menu_manager := class(creative_device):
 
     RunTitleFlashLoop(Agent : agent, MenuWidget : UI.LobbyMenuWidget)<suspends> : void =
         loop:
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(1, 3)
             for (I := 1..BurstCount):
@@ -327,10 +364,10 @@ lobby_menu_manager := class(creative_device):
 
     RunHeadFlashLoop(Agent : agent, MenuWidget : UI.LobbyMenuWidget)<suspends> : void =
         loop:
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(1, 3)
             for (I := 1..BurstCount):
@@ -341,10 +378,10 @@ lobby_menu_manager := class(creative_device):
 
     RunCrossSpin1Loop(Agent : agent, MenuWidget : UI.LobbyMenuWidget)<suspends> : void =
         loop:
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(1, 3)
             for (I := 1..BurstCount):
@@ -355,10 +392,10 @@ lobby_menu_manager := class(creative_device):
 
     RunCrossSpin2Loop(Agent : agent, MenuWidget : UI.LobbyMenuWidget)<suspends> : void =
         loop:
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerLobbyMenuMap[Agent]) then break
+            if (PlayerLobbyMenuActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(1, 3)
             for (I := 1..BurstCount):
@@ -369,10 +406,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARCharacterGlitchLoop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(1, 3)
             for (I := 1..BurstCount):
@@ -383,10 +420,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARCrossSpin1Loop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -397,10 +434,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARCrossSpin2Loop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(4.0, 9.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -411,10 +448,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARTitleFlashLoop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(7.0, 15.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -425,10 +462,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARScore1FlashLoop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(7.0, 15.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -439,10 +476,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARScore2FlashLoop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(7.0, 15.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -453,10 +490,10 @@ lobby_menu_manager := class(creative_device):
 
     RunAARRankIconGlitchLoop(Agent : agent, MenuWidget : UI.AARWidget)<suspends> : void =
         loop:
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
             Cooldown := GetRandomFloat(7.0, 15.0)
             Sleep(Cooldown)
-            if (not PlayerAARMap[Agent]) then break
+            if (PlayerAARActiveMap[Agent] = false) then break
 
             BurstCount := GetRandomInt(2, 4)
             for (I := 1..BurstCount):
@@ -481,7 +518,8 @@ lobby_menu_manager := class(creative_device):
         
         PlaySFXForPlayer(P1, MatchFoundSFX)
         PlaySFXForPlayer(P2, MatchFoundSFX)
-        if (Menu1 := PlayerLobbyMenuMap[P1], Menu2 := PlayerLobbyMenuMap[P2]):
+
+        if (Menu1 := PlayerLobbyMenuMap[P1]):
             set Menu1.ShowMatchFoundPopup = true
             set Menu1.MatchFoundMapName = MapMsg
             set Menu1.MatchFoundMapThumbnail = Arena.General.SmallThumbnail
@@ -489,6 +527,7 @@ lobby_menu_manager := class(creative_device):
             set Menu1.MatchFoundCountdown = StringToMessage("3")
             set Menu1.MatchFoundAnim = true
 
+        if (Menu2 := PlayerLobbyMenuMap[P2]):
             set Menu2.ShowMatchFoundPopup = true
             set Menu2.MatchFoundMapName = MapMsg
             set Menu2.MatchFoundMapThumbnail = Arena.General.SmallThumbnail
@@ -496,22 +535,31 @@ lobby_menu_manager := class(creative_device):
             set Menu2.MatchFoundCountdown = StringToMessage("3")
             set Menu2.MatchFoundAnim = true
 
-            Sleep(1.0)  
+        Sleep(1.0)  
+        if (Menu1 := PlayerLobbyMenuMap[P1]):
             set Menu1.MatchFoundCountdown = StringToMessage("2")
+        if (Menu2 := PlayerLobbyMenuMap[P2]):
             set Menu2.MatchFoundCountdown = StringToMessage("2")
 
-            Sleep(1.0)
+        Sleep(1.0)
+        if (Menu1 := PlayerLobbyMenuMap[P1]):
             set Menu1.MatchFoundCountdown = StringToMessage("1")
+        if (Menu2 := PlayerLobbyMenuMap[P2]):
             set Menu2.MatchFoundCountdown = StringToMessage("1")
 
-            Sleep(1.0)
+        Sleep(1.0)
+        if (Menu1 := PlayerLobbyMenuMap[P1]):
             set Menu1.ShowMatchFoundPopup = false
+        if (Menu2 := PlayerLobbyMenuMap[P2]):
             set Menu2.ShowMatchFoundPopup = false
 
         ActiveController := MapManager.ResolveControllerForMap(Arena)
-        ActiveController.InitMatch(P1, P2, MatchmakingManager.MatchSettings, Arena, LobbyTP, LoadoutManager, StatsManager, MapManager)
+        ActiveController.InitMatch(P1, P2, MatchmakingManager.MatchSettings, Arena, LobbyTP, LoadoutManager, StatsManager, MapManager, Self)
 
     ShowPostMatchAAR<public>(P1 : agent, P2 : agent, Score1 : int, Score2 : int, Winner : ?agent, Loser : ?agent) : void =
+        MatchmakingManager.UnlockAgent(P1)
+        MatchmakingManager.UnlockAgent(P2)
+
         NewSession := rematch_session{ Player1 := P1, Player2 := P2 }
         set ActiveRematchSessions += array{ NewSession }
 
@@ -523,6 +571,7 @@ lobby_menu_manager := class(creative_device):
             AARWidget := UI.AARWidget{}
             PUI.AddWidget(AARWidget, player_ui_slot{ ZOrder := 0, InputMode := ui_input_mode.All })
             if. set PlayerAARMap[Agent] = AARWidget
+            if. set PlayerAARActiveMap[Agent] = true
 
             PlayMusicForPlayer(Agent)
 
@@ -690,36 +739,15 @@ lobby_menu_manager := class(creative_device):
                     CloseAARForRematchPair(Session)
 
                     MapManager.ReserveMap(SelectedArena)
-                    ActiveController.InitMatch(Session.Player1, Session.Player2, MatchmakingManager.MatchSettings, SelectedArena, LobbyTP, LoadoutManager, StatsManager, MapManager)
-
+                    ActiveController.InitMatch(Session.Player1, Session.Player2, MatchmakingManager.MatchSettings, SelectedArena, LobbyTP, LoadoutManager, StatsManager, MapManager, Self)
+    
     CloseAARForRematchPair(Session : rematch_session) : void =
+        if. set PlayerAARActiveMap[Session.Player1] = false
+        if. set PlayerAARActiveMap[Session.Player2] = false
         if (P1 := Session.Player1, P1Plr := player[P1], P1UI := GetPlayerUI[P1Plr], AAR1 := PlayerAARMap[P1]):
             P1UI.RemoveWidget(AAR1)
         if (P2 := Session.Player2, P2Plr := player[P2], P2UI := GetPlayerUI[P2Plr], AAR2 := PlayerAARMap[P2]):
             P2UI.RemoveWidget(AAR2)
-
-    HandleExitAARClicked(Agent : agent) : void =
-        if (PlayerObj := player[Agent], PUI := GetPlayerUI[PlayerObj], AAR := PlayerAARMap[Agent]):
-            PUI.RemoveWidget(AAR)
-            InitializePlayerLobbyMenu(Agent)
-            MatchmakingManager.UnlockAgent(Agent)
-
-        for (Session : ActiveRematchSessions):
-            if (Session.Player1 = Agent):
-                set Session.P1InAAR = false
-                set Session.P1WantsRematch = false
-                if (AAR2 := PlayerAARMap[Session.Player2]):
-                    set AAR2.IsRematchAvailable = false
-                    set AAR2.OpponentExitedAAR = true
-            else if (Session.Player2 = Agent):
-                set Session.P2InAAR = false
-                set Session.P2WantsRematch = false
-                if (AAR1 := PlayerAARMap[Session.Player1]):
-                    set AAR1.IsRematchAvailable = false
-                    set AAR1.OpponentExitedAAR = true
-
-        if (Prefs := PlayerPreferencesMap[Agent], Prefs.AutoQueue?):
-            MatchmakingManager.HandlePlayerReadyUp(Agent)
 
     HandlePlayerDisconnected(LeavingAgent : agent) : void =
         for (Session : ActiveRematchSessions):
@@ -735,9 +763,13 @@ lobby_menu_manager := class(creative_device):
                     set AAR1.OpponentExitedAAR = true
 
     HandlePlayButtonClicked(Agent : agent) : void =
+        if (MatchmakingManager.IsAgentLocked(Agent)?):
+            MatchmakingManager.UnlockAgent(Agent)
+
         if (MatchmakingManager.IsPlayerQueued(Agent)?):
             MatchmakingManager.DequeuePlayer(Agent)
-        else MatchmakingManager.HandlePlayerReadyUp(Agent)
+        else:
+            MatchmakingManager.HandlePlayerReadyUp(Agent)
 
     HandleAutoQueueToggled(Agent : agent) : void =
         CurrentState := if (Prefs := PlayerPreferencesMap[Agent]) then Prefs.AutoQueue else false
@@ -843,14 +875,23 @@ lobby_menu_manager := class(creative_device):
             WeeklyMsg := StringToMessage(FormatTime(WeeklyRem))
 
             for (Agent -> MenuWidget : PlayerLobbyMenuMap):
-                set MenuWidget.ShopDailyTimerMessage = DailyMsg
-                set MenuWidget.ShopWeeklyTimerMessage = WeeklyMsg
+                if (PlayerLobbyMenuActiveMap[Agent] = true):
+                    set MenuWidget.ShopDailyTimerMessage = DailyMsg
+                    set MenuWidget.ShopWeeklyTimerMessage = WeeklyMsg
 
     LobbyMenuUpdateLoop()<suspends> : void =
         loop:
             Sleep(UpdateInterval)
             for (Agent -> MenuWidget : PlayerLobbyMenuMap):
-                UpdateMenuData(Agent, MenuWidget)
+                if (PlayerLobbyMenuActiveMap[Agent] = true):
+                    # Only poll dynamic queue duration; catalog/shop/stats are updated via events
+                    IsQueued := MatchmakingManager.IsPlayerQueued(Agent)
+                    set MenuWidget.IsQueued = IsQueued
+                    if (IsQueued?):
+                        QDuration := MatchmakingManager.GetPlayerQueueDuration(Agent)
+                        EstWait := MatchmakingManager.GetEstimatedWaitTime(Agent)
+                        set MenuWidget.QueueTimeMessage = StringToMessage(FormatTime(QDuration))
+                        set MenuWidget.EstWaitTimeMessage = StringToMessage("{FormatTime(EstWait)}s")
 
     UpdateMenuData(Agent : agent, MenuWidget : UI.LobbyMenuWidget) : void =
         UpdateStatsAndRankData(Agent, MenuWidget)

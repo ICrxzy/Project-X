@@ -30,11 +30,83 @@ customization_manager := class(creative_device):
     var PlayerCarouselPageMap : [agent][customization_type]int = map{}
 
     CustomizationUpdatedEvent<public> : event(agent) = event(agent){}
+    var MasterCatalogCache : []customization_item_def = array{}
 
     OnBegin<override>()<suspends> : void =
+        # Initialize immutable master catalog cache once on startup
+        set MasterCatalogCache = BuildMasterCatalog()
+
         GetPlayspace().PlayerAddedEvent().Subscribe(InitializePlayerCustomization)
         GetPlayspace().PlayerRemovedEvent().Subscribe(OnPlayerRemoved)
         for (P : GetPlayspace().GetPlayers()) do InitializePlayerCustomization(P)
+
+    # Returns the cached master catalog without per-call array reallocation
+    GetMasterCatalog<public>()<transacts> : []customization_item_def =
+        if (MasterCatalogCache.Length > 0):
+            return MasterCatalogCache
+        return BuildMasterCatalog()
+
+    BuildMasterCatalog()<transacts> : []customization_item_def =
+        array:
+            # Backpacks
+            customization_item_def{ Id := "BP 1", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Standard Rig", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 0, IsDefaultUnlocked := true },
+            customization_item_def{ Id := "BP 2", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Commando Pack", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 1 },
+            customization_item_def{ Id := "BP 3", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "SO-COMM Pack", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 2 },
+            customization_item_def{ Id := "BP 4", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Medical Stachel", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 3 },
+            customization_item_def{ Id := "BP 5", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Bloodbane", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 4 },
+
+            # Kill Effects (Frag Effects)
+            customization_item_def{ Id := "KE 1", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Neutral Disruption", BasePrice := 500, IsDefaultUnlocked := true },
+            customization_item_def{ Id := "KE 2", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Disco Jam", BasePrice := 500 },
+            customization_item_def{ Id := "KE 3", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Melting Madness", BasePrice := 500 },
+            customization_item_def{ Id := "KE 4", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Disruption", BasePrice := 500 },
+            customization_item_def{ Id := "KE 5", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Displacement", BasePrice := 500 },
+
+            # Emblems
+            customization_item_def{ Id := "EM 1", Type := customization_type.Emblem, Tier := customization_tier.Tier4, Name := "Developer's Crest", BasePrice := 0, Thumbnail := UI.S5V2 },
+            customization_item_def{ Id := "EM 2", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Recruit", BasePrice := 200, Thumbnail := UI.level, IsDefaultUnlocked := true },
+            customization_item_def{ Id := "EM 3", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Explosion", BasePrice := 200, Thumbnail := UI.Explosion },
+            customization_item_def{ Id := "EM 4", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "By The Horns", BasePrice := 200, Thumbnail := UI.ByTheHorn },
+            customization_item_def{ Id := "EM 5", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Mr. Monkee", BasePrice := 200, Thumbnail := UI.Cool_Monkey },
+            customization_item_def{ Id := "EM 6", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Who's da bomb?", BasePrice := 200, Thumbnail := UI.DaBomb },
+            customization_item_def{ Id := "EM 7", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Disco Baller", BasePrice := 200, Thumbnail := UI.DiscoBaller },
+            customization_item_def{ Id := "EM 8", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Dragon Spirit", BasePrice := 200, Thumbnail := UI.DragonSpirit },
+            customization_item_def{ Id := "EM 9", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Drum Beat", BasePrice := 200, Thumbnail := UI.DrumBeat },
+            customization_item_def{ Id := "EM 10", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Eyes Wide Open", BasePrice := 200, Thumbnail := UI.EyesOpen },
+            customization_item_def{ Id := "EM 11", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Fish Paste", BasePrice := 200, Thumbnail := UI.FishPaste },
+            customization_item_def{ Id := "EM 12", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "G.O.A.T", BasePrice := 200, Thumbnail := UI.Goat },
+            customization_item_def{ Id := "EM 13", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "King Krab", BasePrice := 200, Thumbnail := UI.KingKrab },
+            customization_item_def{ Id := "EM 14", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Love Tap", BasePrice := 200, Thumbnail := UI.LoveTap },
+            customization_item_def{ Id := "EM 15", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "We live in a society...", BasePrice := 200, Thumbnail := UI.Society },
+            customization_item_def{ Id := "EM 16", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Thirst Quencher", BasePrice := 200, Thumbnail := UI.ThirstQuencher },
+            customization_item_def{ Id := "EM 17", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "According to avaiation...", BasePrice := 200, Thumbnail := UI.TrioBees },
+
+            # Calling Cards (Backplates)
+            customization_item_def{ Id := "CC 1", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Recruit", BasePrice := 0, Thumbnail := UI.CC_Default, IsDefaultUnlocked := true },
+            customization_item_def{ Id := "CC 2", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "New Additions", BasePrice := 200, Thumbnail := UI.CC_PlusSigns },
+            customization_item_def{ Id := "CC 3", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Private", BasePrice := 200, Thumbnail := UI.Amatuer },
+            customization_item_def{ Id := "CC 4", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Aura Wave", BasePrice := 500, Thumbnail := UI.AuraWave },
+            customization_item_def{ Id := "CC 5", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Bright Skies", BasePrice := 200, Thumbnail := UI.BrightSkies },
+            customization_item_def{ Id := "CC 6", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Bubblegum", BasePrice := 500, Thumbnail := UI.Bubblegum },
+            customization_item_def{ Id := "CC 7", Type := customization_type.Backplate, Tier := customization_tier.Tier3, Name := "Code Red", BasePrice := 800, Thumbnail := UI.CodeRed },
+            customization_item_def{ Id := "CC 8", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Droplets", BasePrice := 200, Thumbnail := UI.Droplets },
+            customization_item_def{ Id := "CC 9", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Ember Forest", BasePrice := 500, Thumbnail := UI.EmberForest },
+            customization_item_def{ Id := "CC 10", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Geometric", BasePrice := 200, Thumbnail := UI.Geometric },
+            customization_item_def{ Id := "CC 11", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Glacial", BasePrice := 500, Thumbnail := UI.Glacial },
+            customization_item_def{ Id := "CC 12", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "International", BasePrice := 200, Thumbnail := UI.International },
+            customization_item_def{ Id := "CC 13", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Mirage", BasePrice := 500, Thumbnail := UI.Mirage },
+
+            # Titles
+            customization_item_def{ Id := "Cracked", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Cracked Title", BasePrice := 200, TitleText := "Cracked", IsDefaultUnlocked := true },
+            customization_item_def{ Id := "G.O.A.T", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "G.O.A.T Title", BasePrice := 500, TitleText := "G.O.A.T" },
+            customization_item_def{ Id := "Nightmare", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Nightmare Title", BasePrice := 200, TitleText := "Nightmare" },
+            customization_item_def{ Id := "Mercenary", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Mercenary Title", BasePrice := 200, TitleText := "Mercenary" },
+            customization_item_def{ Id := "Marksman", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Marksman Title", BasePrice := 200, TitleText := "Marksman" },
+            customization_item_def{ Id := "Bulletproof", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "Bulletproof Title", BasePrice := 500, TitleText := "Bulletproof" },
+            customization_item_def{ Id := "One Man Army", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "One Man Army Title", BasePrice := 500, TitleText := "One Man Army" },
+            customization_item_def{ Id := "War Dog", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "War Dog Title", BasePrice := 200, TitleText := "War Dog" },
+            customization_item_def{ Id := "Bullet Sponge", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Bullet Sponge Title", BasePrice := 200, TitleText := "Bullet Sponge" },
+            customization_item_def{ Id := "Unkillable", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "Unkillable Title", BasePrice := 500, TitleText := "Unkillable" }
 
     # Safe lazy-initialization helper preventing race conditions on startup
     GetOrInitializePlayerCustomization<public>(Agent : agent) : player_persistable_customization =
@@ -109,69 +181,6 @@ customization_manager := class(creative_device):
     SavePlayerCustomization(Plr : player) : void =
         if (Data := PlayerCustomizationMap[Plr]):
             SavePlayerCustomizationToProfile(Plr, Data)
-
-    # --- Master Cosmetic Catalog (44 Total Items) ---
-    GetMasterCatalog<public>()<transacts> : []customization_item_def =
-        array:
-            # Backpacks
-            customization_item_def{ Id := "BP 1", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Standard Rig", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 0, IsDefaultUnlocked := true },
-            customization_item_def{ Id := "BP 2", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Commando Pack", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 1 },
-            customization_item_def{ Id := "BP 3", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "SO-COMM Pack", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 2 },
-            customization_item_def{ Id := "BP 4", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Medical Stachel", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 3 },
-            customization_item_def{ Id := "BP 5", Type := customization_type.Backpack, Tier := customization_tier.Tier1, Name := "Bloodbane", BasePrice := 500, Thumbnail := UI.Unranked, VfxIndex := 4 },
-
-            # Kill Effects (Frag Effects)
-            customization_item_def{ Id := "KE 1", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Neutral Disruption", BasePrice := 500, IsDefaultUnlocked := true },
-            customization_item_def{ Id := "KE 2", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Disco Jam", BasePrice := 500 },
-            customization_item_def{ Id := "KE 3", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Melting Madness", BasePrice := 500 },
-            customization_item_def{ Id := "KE 4", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Disruption", BasePrice := 500 },
-            customization_item_def{ Id := "KE 5", Type := customization_type.KillEffect, Tier := customization_tier.Tier1, Name := "Displacement", BasePrice := 500 },
-
-            # Emblems
-            customization_item_def{ Id := "EM 1", Type := customization_type.Emblem, Tier := customization_tier.Tier4, Name := "Developer's Crest", BasePrice := 0, Thumbnail := UI.S5V2 },
-            customization_item_def{ Id := "EM 2", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Recruit", BasePrice := 200, Thumbnail := UI.level, IsDefaultUnlocked := true },
-            customization_item_def{ Id := "EM 3", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Explosion", BasePrice := 200, Thumbnail := UI.Explosion },
-            customization_item_def{ Id := "EM 4", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "By The Horns", BasePrice := 200, Thumbnail := UI.ByTheHorn },
-            customization_item_def{ Id := "EM 5", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Mr. Monkee", BasePrice := 200, Thumbnail := UI.Cool_Monkey },
-            customization_item_def{ Id := "EM 6", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Who's da bomb?", BasePrice := 200, Thumbnail := UI.DaBomb },
-            customization_item_def{ Id := "EM 7", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Disco Baller", BasePrice := 200, Thumbnail := UI.DiscoBaller },
-            customization_item_def{ Id := "EM 8", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Dragon Spirit", BasePrice := 200, Thumbnail := UI.DragonSpirit },
-            customization_item_def{ Id := "EM 9", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Drum Beat", BasePrice := 200, Thumbnail := UI.DrumBeat },
-            customization_item_def{ Id := "EM 10", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Eyes Wide Open", BasePrice := 200, Thumbnail := UI.EyesOpen },
-            customization_item_def{ Id := "EM 11", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Fish Paste", BasePrice := 200, Thumbnail := UI.FishPaste },
-            customization_item_def{ Id := "EM 12", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "G.O.A.T", BasePrice := 200, Thumbnail := UI.Goat },
-            customization_item_def{ Id := "EM 13", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "King Krab", BasePrice := 200, Thumbnail := UI.KingKrab },
-            customization_item_def{ Id := "EM 14", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Love Tap", BasePrice := 200, Thumbnail := UI.LoveTap },
-            customization_item_def{ Id := "EM 15", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "We live in a society...", BasePrice := 200, Thumbnail := UI.Society },
-            customization_item_def{ Id := "EM 16", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "Thirst Quencher", BasePrice := 200, Thumbnail := UI.ThirstQuencher },
-            customization_item_def{ Id := "EM 17", Type := customization_type.Emblem, Tier := customization_tier.Tier1, Name := "According to avaiation...", BasePrice := 200, Thumbnail := UI.TrioBees },
-
-            # Calling Cards (Backplates)
-            customization_item_def{ Id := "CC 1", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Recruit", BasePrice := 0, Thumbnail := UI.CC_Default, IsDefaultUnlocked := true },
-            customization_item_def{ Id := "CC 2", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "New Additions", BasePrice := 200, Thumbnail := UI.CC_PlusSigns },
-            customization_item_def{ Id := "CC 3", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Private", BasePrice := 200, Thumbnail := UI.Amatuer },
-            customization_item_def{ Id := "CC 4", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Aura Wave", BasePrice := 500, Thumbnail := UI.AuraWave },
-            customization_item_def{ Id := "CC 5", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Bright Skies", BasePrice := 200, Thumbnail := UI.BrightSkies },
-            customization_item_def{ Id := "CC 6", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Bubblegum", BasePrice := 500, Thumbnail := UI.Bubblegum },
-            customization_item_def{ Id := "CC 7", Type := customization_type.Backplate, Tier := customization_tier.Tier3, Name := "Code Red", BasePrice := 800, Thumbnail := UI.CodeRed },
-            customization_item_def{ Id := "CC 8", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Droplets", BasePrice := 200, Thumbnail := UI.Droplets },
-            customization_item_def{ Id := "CC 9", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Ember Forest", BasePrice := 500, Thumbnail := UI.EmberForest },
-            customization_item_def{ Id := "CC 10", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "Geometric", BasePrice := 200, Thumbnail := UI.Geometric },
-            customization_item_def{ Id := "CC 11", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Glacial", BasePrice := 500, Thumbnail := UI.Glacial },
-            customization_item_def{ Id := "CC 12", Type := customization_type.Backplate, Tier := customization_tier.Tier1, Name := "International", BasePrice := 200, Thumbnail := UI.International },
-            customization_item_def{ Id := "CC 13", Type := customization_type.Backplate, Tier := customization_tier.Tier2, Name := "Mirage", BasePrice := 500, Thumbnail := UI.Mirage },
-
-            # Titles
-            customization_item_def{ Id := "Cracked", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Cracked Title", BasePrice := 200, TitleText := "Cracked", IsDefaultUnlocked := true },
-            customization_item_def{ Id := "G.O.A.T", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "G.O.A.T Title", BasePrice := 500, TitleText := "G.O.A.T" },
-            customization_item_def{ Id := "Nightmare", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Nightmare Title", BasePrice := 200, TitleText := "Nightmare" },
-            customization_item_def{ Id := "Mercenary", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Mercenary Title", BasePrice := 200, TitleText := "Mercenary" },
-            customization_item_def{ Id := "Marksman", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Marksman Title", BasePrice := 200, TitleText := "Marksman" },
-            customization_item_def{ Id := "Bulletproof", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "Bulletproof Title", BasePrice := 500, TitleText := "Bulletproof" },
-            customization_item_def{ Id := "One Man Army", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "One Man Army Title", BasePrice := 500, TitleText := "One Man Army" },
-            customization_item_def{ Id := "War Dog", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "War Dog Title", BasePrice := 200, TitleText := "War Dog" },
-            customization_item_def{ Id := "Bullet Sponge", Type := customization_type.Title, Tier := customization_tier.Tier1, Name := "Bullet Sponge Title", BasePrice := 200, TitleText := "Bullet Sponge" },
-            customization_item_def{ Id := "Unkillable", Type := customization_type.Title, Tier := customization_tier.Tier2, Name := "Unkillable Title", BasePrice := 500, TitleText := "Unkillable" }
 
     # --- Live Player Card Data Resolution ---
     GetPlayerCardData<public>(Agent : agent) : player_card_data =

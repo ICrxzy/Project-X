@@ -186,54 +186,56 @@ stats_manager := class(creative_device):
                 MaxWinStreak := Old.MaxWinStreak
             SavePlayerStats(Agent)
 
-    DevRankDown<public>(Agent : agent) : void =
-        if (Stats := SessionStats[Agent]):
-            CurrentRank := ResolveRankFromElo(Stats.Current.Elo)
-            if (CurrentRank.Tier > 0, PreviousTier := RankSettings.RankTiers[CurrentRank.Tier - 1]):
-                Old := Stats.Current
-                set Stats.Current = player_persistable_stats:
-                    Headshots := Old.Headshots,
-                    Kills := Old.Kills,
-                    Deaths := Old.Deaths,
-                    Wins := Old.Wins,
-                    Losses := Old.Losses,
-                    Suicides := Old.Suicides,
-                    Elo := PreviousTier.MinimumElo,
-                    WinVelocity := Old.WinVelocity,
-                    LossDamping := Old.LossDamping,
-                    CurrentKillStreak := Old.CurrentKillStreak,
-                    MaxKillStreak := Old.MaxKillStreak,
-                    CurrentWinStreak := Old.CurrentWinStreak,
-                    MaxWinStreak := Old.MaxWinStreak
-                SavePlayerStats(Agent)
 
-    DevRankUp<public>(Agent : agent) : void =
-        if (Stats := SessionStats[Agent]):
-            CurrentRank := ResolveRankFromElo(Stats.Current.Elo)
-            if (NextTier := RankSettings.RankTiers[CurrentRank.Tier + 1]):
-                Old := Stats.Current
-                set Stats.Current = player_persistable_stats:
-                    Headshots := Old.Headshots,
-                    Kills := Old.Kills,
-                    Deaths := Old.Deaths,
-                    Wins := Old.Wins,
-                    Losses := Old.Losses,
-                    Suicides := Old.Suicides,
-                    Elo := NextTier.MinimumElo,
-                    WinVelocity := Old.WinVelocity,
-                    LossDamping := Old.LossDamping,
-                    CurrentKillStreak := Old.CurrentKillStreak,
-                    MaxKillStreak := Old.MaxKillStreak,
-                    CurrentWinStreak := Old.CurrentWinStreak,
-                    MaxWinStreak := Old.MaxWinStreak
-                SavePlayerStats(Agent)
+    GetEffectiveRankTiers<public>()<transacts> : []rank_tier_config =
+        if (RankSettings.RankTiers.Length > 0):
+            return RankSettings.RankTiers
+        return array:
+            rank_tier_config{ RankName := "UNRANKED", MinimumElo := 0.0, IconType := rank_icon_type.Unranked },
+            rank_tier_config{ RankName := "BRONZE I", MinimumElo := 100.0, IconType := rank_icon_type.Bronze1 },
+            rank_tier_config{ RankName := "BRONZE II", MinimumElo := 200.0, IconType := rank_icon_type.Bronze2 },
+            rank_tier_config{ RankName := "BRONZE III", MinimumElo := 300.0, IconType := rank_icon_type.Bronze3 },
+            rank_tier_config{ RankName := "SILVER I", MinimumElo := 500.0, IconType := rank_icon_type.Silver1 },
+            rank_tier_config{ RankName := "SILVER II", MinimumElo := 700.0, IconType := rank_icon_type.Silver2 },
+            rank_tier_config{ RankName := "SILVER III", MinimumElo := 900.0, IconType := rank_icon_type.Silver3 },
+            rank_tier_config{ RankName := "GOLD I", MinimumElo := 1200.0, IconType := rank_icon_type.Gold1 },
+            rank_tier_config{ RankName := "GOLD II", MinimumElo := 1500.0, IconType := rank_icon_type.Gold2 },
+            rank_tier_config{ RankName := "GOLD III", MinimumElo := 1800.0, IconType := rank_icon_type.Gold3 },
+            rank_tier_config{ RankName := "PLATINUM I", MinimumElo := 2200.0, IconType := rank_icon_type.Platinum1 },
+            rank_tier_config{ RankName := "PLATINUM II", MinimumElo := 2600.0, IconType := rank_icon_type.Platinum2 },
+            rank_tier_config{ RankName := "PLATINUM III", MinimumElo := 3000.0, IconType := rank_icon_type.Platinum3 },
+            rank_tier_config{ RankName := "DIAMOND I", MinimumElo := 3500.0, IconType := rank_icon_type.Diamond1 },
+            rank_tier_config{ RankName := "DIAMOND II", MinimumElo := 4000.0, IconType := rank_icon_type.Diamond2 },
+            rank_tier_config{ RankName := "DIAMOND III", MinimumElo := 4500.0, IconType := rank_icon_type.Diamond3 },
+            rank_tier_config{ RankName := "ELITE", MinimumElo := 5200.0, IconType := rank_icon_type.Elite },
+            rank_tier_config{ RankName := "CHAMPION", MinimumElo := 6000.0, IconType := rank_icon_type.Champion },
+            rank_tier_config{ RankName := "UNREAL", MinimumElo := 7500.0, IconType := rank_icon_type.Unreal },
+            rank_tier_config{ RankName := "FRAG MASTER", MinimumElo := 10000.0, IconType := rank_icon_type.FragMaster }
+
+    ResolveRankFromElo<public>(Elo : float)<transacts> : rank_resolution =
+        Tiers := GetEffectiveRankTiers()
+        var ResolvedTier : int = 0
+        var ResolvedRankName : string = "Unranked"
+        var ResolvedIconType : rank_icon_type = rank_icon_type.Unranked
+
+        for (Index -> Rank : Tiers):
+            if (Elo >= Rank.MinimumElo):
+                set ResolvedTier = Index
+                set ResolvedRankName = Rank.RankName
+                set ResolvedIconType = Rank.IconType
+
+        return rank_resolution:
+            Tier := ResolvedTier
+            RankName := ResolvedRankName
+            RankIcon := ResolveRankTexture(ResolvedIconType)
 
     GetRankProgress<public>(Elo : float)<transacts> : tuple(float, string) =
+        Tiers := GetEffectiveRankTiers()
         CurrentRank := ResolveRankFromElo(Elo)
-        TierCount := RankSettings.RankTiers.Length
+        TierCount := Tiers.Length
         if (TierCount > 0):
             if (CurrentRank.Tier < TierCount - 1):
-                if (CurrTier := RankSettings.RankTiers[CurrentRank.Tier], NextTier := RankSettings.RankTiers[CurrentRank.Tier + 1]):
+                if (CurrTier := Tiers[CurrentRank.Tier], NextTier := Tiers[CurrentRank.Tier + 1]):
                     Range := NextTier.MinimumElo - CurrTier.MinimumElo
                     if (Range > 0.0):
                         RawProgress := (Elo - CurrTier.MinimumElo) / Range
@@ -245,6 +247,10 @@ stats_manager := class(creative_device):
         return (0.0, "0%")
 
     Finalize1v1MatchStats<public>(Winner : agent, Loser : agent) : void =
+        # Guarantee session stats records exist for both competitors
+        InitializePlayer(Winner)
+        InitializePlayer(Loser)
+
         # Process Winner
         if (WStats := SessionStats[Winner]):
             OldW := WStats.Current
@@ -315,8 +321,7 @@ stats_manager := class(creative_device):
             if (OldL.LossDamping >= RankSettings.LossDampingThreshold):
                 set FinalLoss = RankSettings.BaseLoss * RankSettings.LossMitigationFactor
 
-            NewEloL := if (OldL.Elo - FinalLoss >= 0.0) 
-            then OldL.Elo - FinalLoss else 0.0
+            NewEloL := if (OldL.Elo - FinalLoss >= 0.0) then OldL.Elo - FinalLoss else 0.0
 
             set LStats.Current = player_persistable_stats:
                 Losses := OldL.Losses + 1,
@@ -372,22 +377,6 @@ stats_manager := class(creative_device):
         for (Key -> Val : LastMatchTransitions, Key <> Agent):
             if. set NewTransitions[Key] = Val
         set LastMatchTransitions = NewTransitions
-
-    ResolveRankFromElo<public>(Elo : float)<transacts> : rank_resolution =
-        var ResolvedTier : int = 0
-        var ResolvedRankName : string = "Unranked"
-        var ResolvedIconType : rank_icon_type = rank_icon_type.Unranked
-
-        for (Index -> Rank : RankSettings.RankTiers):
-            if (Elo >= Rank.MinimumElo):
-                set ResolvedTier = Index
-                set ResolvedRankName = Rank.RankName
-                set ResolvedIconType = Rank.IconType
-
-        return rank_resolution:
-            Tier := ResolvedTier
-            RankName := ResolvedRankName
-            RankIcon := ResolveRankTexture(ResolvedIconType)
 
     ResolveRankTexture<public>(IconType : rank_icon_type)<transacts> : texture =
         case (IconType):

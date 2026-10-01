@@ -141,10 +141,10 @@ accolade_manager := class(creative_device):
 
     PlaytimeLoop()<suspends> : void =
         loop:
-            Sleep(1.0)
+            Sleep(10.0)
             for (P : GetPlayspace().GetPlayers(), P.IsActive[]):
                 if (Tracker := PlaytimeTrackers[P]):
-                    set Tracker.SecondsElapsed += 1.0
+                    set Tracker.SecondsElapsed += 10.0
                     if (Minutes1 := Floor[Tracker.SecondsElapsed / 60.0]):
                         if (Minutes1 > Tracker.Last1MinAward):
                             set Tracker.Last1MinAward = Minutes1

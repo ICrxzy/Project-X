@@ -318,10 +318,7 @@ contract_manager := class(creative_device):
 
         if (Killer := KillerOpt?, Killer <> Victim, not IsSuicide?):
             RecordFragProgress(Killer, Victim)
-            RecordDeathProgress(Victim)
-        else:
-            RecordSelfFragProgress(Victim)
-            RecordDeathProgress(Victim)
+        else RecordSelfFragProgress(Victim)
 
     RecordFragProgress(Killer : agent, Victim : agent) : void =
         if (Plr := player[Killer], Data := ActiveContractsMap[Killer]):
@@ -362,7 +359,7 @@ contract_manager := class(creative_device):
 
     PlaytimeTrackingLoop()<suspends> : void =
         loop:
-            Sleep(15.0)
+            Sleep(60.0)
             CurrentTime := GetSimulationElapsedTime()
             DeltaSeconds := CurrentTime - LastPlaytimeCheckTime
             set LastPlaytimeCheckTime = CurrentTime
@@ -380,7 +377,6 @@ contract_manager := class(creative_device):
                         TrackedPlaytimeSeconds := NewPlaytime
 
                     if. set ActiveContractsMap[P] = UpdatedData
-                    SavePlayerContracts(P)
                     EvaluateAllContractsForPlayer(P)
 
     UpdateEntriesForRequirement(Entries : []persisted_contract_entry, Req : contract_requirement_type, Amount : int, Condition : logic)<transacts> : []persisted_contract_entry =

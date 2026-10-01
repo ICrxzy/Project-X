@@ -44,19 +44,28 @@ matchmaking_manager := class(creative_device):
     # Event signaled when a match is found from the queue (P1, P2, MapName, Arena)
     MatchFoundEvent<public> : event(tuple(agent, agent, string, arena_map)) = event(tuple(agent, agent, string, arena_map)){}
     LockAgents<public>(A : agent, B : agent) : void = set LockedAgents += array{A, B}
-    UnlockAgent<public>(A : agent) : void = set LockedAgents = for (L : LockedAgents, L <> A) do L
+    UnlockAgent<public>(A : agent) : void = set LockedAgents = for (Locked : LockedAgents, Locked <> A) do Locked
 
     OnBegin<override>()<suspends> : void =
         ReadyUpButton.InteractedWithEvent.Subscribe(HandlePlayerReadyUp)
         GetPlayspace().PlayerRemovedEvent().Subscribe(OnPlayerLeftServer)
         spawn { MatchmakingLoop() }
 
+    IsAgentLocked<public>(Agent : agent)<transacts> : logic =
+        for (Locked : LockedAgents, Locked = Agent):
+            return true
+        return false
+        
     OnPlayerLeftServer(P : player) : void =
         set Queue = for (QueuedPlayer : Queue, QueuedPlayer <> P) do QueuedPlayer
         UnlockAgent(P)
 
     HandlePlayerReadyUp(Agent : agent) : void =
-        for (L : LockedAgents, L = Agent) do return
+        # Reject entry if player is actively locked in a match
+        if (IsAgentLocked(Agent)?):
+            Print("[Matchmaking] Cannot ready up: Agent is currently locked in match.")
+            return
+
         var IsInQueue : logic = false
         for (QueuedPlayer : Queue, QueuedPlayer = Agent):
             set IsInQueue = true
